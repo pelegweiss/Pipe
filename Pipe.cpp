@@ -4,10 +4,6 @@
 #include "pch.h"
 #include "framework.h"
 #include "Pipe.h"
-// TODO: This is an example of a library function
-void fnPipe()
-{
-}
 Pipe::Pipe(std::wstring name)
 {
     this->pipeName = L"\\\\.\\pipe\\" + name;
@@ -66,8 +62,7 @@ pipeMessage Pipe::readMessage()
     DWORD bytesRead;
 
     int messageID;
-    int dataLen;
-
+    Packet data;
     if (!ReadFile(this->hNamedPipe, &messageID, sizeof(int), &bytesRead, NULL))
     {
         receivedMessage.id = -1; // Indicate an error
@@ -75,24 +70,13 @@ pipeMessage Pipe::readMessage()
     }
     SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
 
-    if (!ReadFile(this->hNamedPipe, &dataLen, sizeof(int), &bytesRead, NULL))
-    {
-        receivedMessage.id = -1; // Indicate an error
-        return receivedMessage;
-    }
-    SetFilePointer(this->hNamedPipe, dataLen, NULL, FILE_CURRENT);
-
-    std::vector<char> buffer(dataLen);
-    // Read the string data from the pipe into the buffer
-    if (!ReadFile(this->hNamedPipe, buffer.data(), dataLen, &bytesRead, NULL))
+    if (!ReadFile(this->hNamedPipe, &data, sizeof(Packet), &bytesRead, NULL))
     {
         receivedMessage.id = -1; // Indicate an error
         return receivedMessage;
     }
     receivedMessage.id = messageID;
-    std::wstring wideData = std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes(std::string(buffer.data(), dataLen));
-
-    receivedMessage.data = wideData;
+    receivedMessage.data = data;
     return receivedMessage;
 }
 bool Pipe::sendMessage(const pipeMessage& message)
@@ -105,14 +89,30 @@ bool Pipe::sendMessage(const pipeMessage& message)
     // Serialize the id
     serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.id), reinterpret_cast<const BYTE*>(&message.id) + sizeof(int));
 
-    // Serialize the string length
-    int strLength = static_cast<int>(message.data.size());
-    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&strLength), reinterpret_cast<const BYTE*>(&strLength) + sizeof(int));
 
-    // Serialize the string data
-    serializedData.insert(serializedData.end(), message.data.begin(), message.data.end());
 
+
+    // Serialize the callerAddress
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data) , reinterpret_cast<const BYTE*>(&message.data)  + sizeof(DWORD));
+
+    // Serialize the  header
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data) + sizeof(DWORD), reinterpret_cast<const BYTE*>(&message.data) + sizeof(DWORD) + sizeof(WORD));
+
+    // Serialize the main vector length
+    int vectorLen = message.data.data.size();
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&vectorLen), reinterpret_cast<const BYTE*>(&vectorLen) + sizeof(int));
+
+ 
+#   //seralize elements
+    for (int i = 0; i < vectorLen; i++)
+    {
+        int elementSize = message.data.data.at(i).size();
+        serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&elementSize), reinterpret_cast<const BYTE*>(&elementSize) + sizeof(int));
+        serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data.data.at(i).at(0)), reinterpret_cast<const BYTE*>(&message.data.data.at(i).at(elementSize-1)+1));
+
+    }
     // Send the serialized message over the pipe
+
     if (!WriteFile(this->hNamedPipe, serializedData.data(), static_cast<DWORD>(serializedData.size()), &bytesWritten, NULL))
     {
         return false;
