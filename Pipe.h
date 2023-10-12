@@ -3,11 +3,16 @@
 #include <iostream>
 #include <codecvt>
 #include <vector>
+struct Segment
+{
+    int type;
+    std::vector<BYTE> bytes;
+};
 struct Packet
 {
     DWORD callerAddress{};
     WORD header{};
-    std::vector<std::vector<BYTE>> data;
+    std::vector<Segment> segments;
 
 };
 struct pipeMessage
