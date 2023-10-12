@@ -61,8 +61,14 @@ pipeMessage Pipe::readMessage()
 
     DWORD bytesRead;
 
-    int messageID;
-    Packet data;
+    int messageID{};
+    int mainVectorSize{};
+    DWORD callerAddress{};
+    WORD header{};
+    std::vector<std::vector<BYTE>> data{};
+    Packet buffer{};
+
+    //deseraliize the messageID
     if (!ReadFile(this->hNamedPipe, &messageID, sizeof(int), &bytesRead, NULL))
     {
         receivedMessage.id = -1; // Indicate an error
@@ -70,13 +76,209 @@ pipeMessage Pipe::readMessage()
     }
     SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
 
-    if (!ReadFile(this->hNamedPipe, &data, sizeof(Packet), &bytesRead, NULL))
+    //deseralize callerAddress
+    if (!ReadFile(this->hNamedPipe, &callerAddress, sizeof(DWORD), &bytesRead, NULL))
     {
         receivedMessage.id = -1; // Indicate an error
         return receivedMessage;
     }
+    SetFilePointer(this->hNamedPipe, sizeof(DWORD), NULL, FILE_CURRENT);
+
+    //deseralize header
+    if (!ReadFile(this->hNamedPipe, &header, sizeof(WORD), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, sizeof(WORD), NULL, FILE_CURRENT);
+
+    //deseralize mainVectorSize
+    if (!ReadFile(this->hNamedPipe, &mainVectorSize, sizeof(int), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+    for (int i = 0; i < mainVectorSize; i++)
+    {
+        std::vector<BYTE> buffer;
+        int elementLen;
+
+        //Deseralize element Length
+        if (!ReadFile(this->hNamedPipe, &elementLen, sizeof(int), &bytesRead, NULL))
+        {
+            receivedMessage.id = -1; // Indicate an error
+            return receivedMessage;
+        }
+        SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+        //Deseralize element Data
+        for (int j = 0; j < elementLen; j++)
+        {
+            BYTE buff;
+            if (!ReadFile(this->hNamedPipe, &buff, sizeof(BYTE), &bytesRead, NULL))
+            {
+                receivedMessage.id = -1; // Indicate an error
+                return receivedMessage;
+            }
+            buffer.emplace_back(buff);
+        }
+        data.emplace_back(buffer);
+
+
+    }
     receivedMessage.id = messageID;
-    receivedMessage.data = data;
+
+    buffer.callerAddress = callerAddress;
+    buffer.header = header;
+    buffer.data = data;
+
+    receivedMessage.data = buffer;
+    return receivedMessage;
+}
+pipeMessage Pipe::readMessage()
+{
+    pipeMessage receivedMessage;
+
+    DWORD bytesRead;
+
+    int messageID{};
+    int mainVectorSize{};
+    DWORD callerAddress{};
+    WORD header{};
+    std::vector<std::vector<BYTE>> data{};
+    Packet buffer{};
+
+    //deseraliize the messageID
+    if (!ReadFile(this->hNamedPipe, &messageID, sizeof(int), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+    //deseralize mainVectorSize
+    if (!ReadFile(this->hNamedPipe, &mainVectorSize, sizeof(int), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+    for (int i = 0; i < mainVectorSize; i++)
+    {
+        std::vector<BYTE> buff;
+        int elementLen;
+
+        //Deseralize element Length
+        if (!ReadFile(this->hNamedPipe, &elementLen, sizeof(int), &bytesRead, NULL))
+        {
+            receivedMessage.id = -1; // Indicate an error
+            return receivedMessage;
+        }
+        SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+        //Deseralize element Data
+        if (!ReadFile(this->hNamedPipe, &buffer, elementLen, &bytesRead, NULL))
+        {
+            receivedMessage.id = -1; // Indicate an error
+            return receivedMessage;
+        }
+        data.emplace_back(buff);
+        SetFilePointer(this->hNamedPipe, elementLen, NULL, FILE_CURRENT);
+
+
+    }
+    receivedMessage.id = messageID;
+
+    buffer.callerAddress = callerAddress;
+    buffer.header = header;
+    buffer.data = data;
+
+    receivedMessage.data = buffer;
+    return receivedMessage;
+}
+pipeMessage Pipe::readMessage()
+{
+    pipeMessage receivedMessage;
+
+    DWORD bytesRead;
+
+    int messageID{};
+    int mainVectorSize{};
+    DWORD callerAddress{};
+    WORD header{};
+    std::vector<std::vector<BYTE>> data{};
+    Packet buffer{};
+
+    //deseraliize the messageID
+    if (!ReadFile(this->hNamedPipe, &messageID, sizeof(int), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+    //deseralize callerAddress
+    if (!ReadFile(this->hNamedPipe, &callerAddress, sizeof(DWORD), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, sizeof(DWORD), NULL, FILE_CURRENT);
+
+    //deseralize header
+    if (!ReadFile(this->hNamedPipe, &header, sizeof(WORD), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, sizeof(WORD), NULL, FILE_CURRENT);
+
+    //deseralize mainVectorSize
+    if (!ReadFile(this->hNamedPipe, &mainVectorSize, sizeof(int), &bytesRead, NULL))
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
+    SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+    for (int i = 0; i < mainVectorSize; i++)
+    {
+        std::vector<BYTE> buffer;
+        int elementLen;
+
+        //Deseralize element Length
+        if (!ReadFile(this->hNamedPipe, &elementLen, sizeof(int), &bytesRead, NULL))
+        {
+            receivedMessage.id = -1; // Indicate an error
+            return receivedMessage;
+        }
+        SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+
+        //Deseralize element Data
+        for (int j = 0; j < elementLen; j++)
+        {
+            BYTE buff;
+            if (!ReadFile(this->hNamedPipe, &buff, sizeof(BYTE), &bytesRead, NULL))
+            {
+                receivedMessage.id = -1; // Indicate an error
+                return receivedMessage;
+            }
+            buffer.emplace_back(buff);
+        }
+        data.emplace_back(buffer);
+
+
+    }
+    receivedMessage.id = messageID;
+
+    buffer.callerAddress = callerAddress;
+    buffer.header = header;
+    buffer.data = data;
+
+    receivedMessage.data = buffer;
     return receivedMessage;
 }
 bool Pipe::sendMessage(const pipeMessage& message)
@@ -93,7 +295,7 @@ bool Pipe::sendMessage(const pipeMessage& message)
 
 
     // Serialize the callerAddress
-    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data) , reinterpret_cast<const BYTE*>(&message.data)  + sizeof(DWORD));
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data), reinterpret_cast<const BYTE*>(&message.data) + sizeof(DWORD));
 
     // Serialize the  header
     serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data) + sizeof(DWORD), reinterpret_cast<const BYTE*>(&message.data) + sizeof(DWORD) + sizeof(WORD));
@@ -102,13 +304,13 @@ bool Pipe::sendMessage(const pipeMessage& message)
     int vectorLen = message.data.data.size();
     serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&vectorLen), reinterpret_cast<const BYTE*>(&vectorLen) + sizeof(int));
 
- 
+
 #   //seralize elements
     for (int i = 0; i < vectorLen; i++)
     {
         int elementSize = message.data.data.at(i).size();
         serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&elementSize), reinterpret_cast<const BYTE*>(&elementSize) + sizeof(int));
-        serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data.data.at(i).at(0)), reinterpret_cast<const BYTE*>(&message.data.data.at(i).at(elementSize-1)+1));
+        serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.data.data.at(i).at(0)), reinterpret_cast<const BYTE*>(&message.data.data.at(i).at(0)) + (elementSize * sizeof(BYTE)));
 
     }
     // Send the serialized message over the pipe
