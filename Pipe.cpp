@@ -22,7 +22,7 @@ bool Pipe::createPipe()
     );
 
     if (hNamedPipe == INVALID_HANDLE_VALUE) {
-        std::cerr << "Failed to create named pipe." << std::endl;
+        std::wcerr << "Failed to create named pipe: " << this->pipeName << std::endl;
         return false;
     }
     return true;
@@ -30,12 +30,14 @@ bool Pipe::createPipe()
 bool Pipe::waitForClient()
 {
     if (!ConnectNamedPipe(this->hNamedPipe, NULL)) {
-        std::cerr << "Failed to connect to named pipe." << std::endl;
+        std::wcerr << "Couldn't find clients for pipe: " << this->pipeName << std::endl;
         CloseHandle(hNamedPipe);
         return false;
     }
+    std::wcout << "Client found for pipe: " << this->pipeName << std::endl;
     return true;
 }
+
 bool Pipe::connectPipe()
 {
     this->hNamedPipe = CreateFile(
@@ -49,11 +51,35 @@ bool Pipe::connectPipe()
     );
 
     if (hNamedPipe == INVALID_HANDLE_VALUE) {
-        std::wcout << "Failed to open pipe: " << this->pipeName << std::endl;
+        std::wcout << "Failed connecting to pipe: " << this->pipeName << std::endl;
         return false;
     }
-    std::wcout << "Connected Pipe: " << this->pipeName << std::endl;
+    std::wcout << "Connected to Pipe: " << this->pipeName << std::endl;
     return true;
+}
+bool Pipe::sendBlockHeaderMessage(const pipeMessage& message)
+{
+    DWORD bytesWritten;
+    int dataSize = 6;
+    // Serialize the message into a byte vector
+    std::vector<BYTE> serializedData;
+    // Serialize the id
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&message.id), reinterpret_cast<const BYTE*>(&message.id) + sizeof(int));
+
+    // Seralize the dataSize
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&dataSize), reinterpret_cast<const BYTE*>(&dataSize) + sizeof(int));
+    // Seralize the data 
+    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(message.data), reinterpret_cast<const BYTE*>(message.data) + dataSize);
+
+    // Send the serialized message over the pipe
+
+    if (!WriteFile(this->hNamedPipe, serializedData.data(), static_cast<DWORD>(serializedData.size()), &bytesWritten, NULL))
+    {
+        return false;
+    }
+
+    return true;
+
 }
 bool Pipe::sendPacketMessage(const pipeMessage& message)
 {
@@ -156,4 +182,6 @@ pipeMessage Pipe::readPipeMessage()
 
     return receivedMessage;
 }
+
+
 
