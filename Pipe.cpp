@@ -1,8 +1,6 @@
 // Pipe.cpp : Defines the functions for the static library.
 //
 
-#include "pch.h"
-#include "framework.h"
 #include "Pipe.h"
 Pipe::Pipe(std::wstring name)
 {
@@ -29,7 +27,9 @@ bool Pipe::createPipe()
 }
 bool Pipe::waitForClient()
 {
-    if (!ConnectNamedPipe(this->hNamedPipe, NULL)) {
+    if (!WaitNamedPipe(this->pipeName.c_str(), 5000))
+    {
+        // Timeout occurred, handle as needed
         std::wcerr << "Couldn't find clients for pipe: " << this->pipeName << std::endl;
         CloseHandle(hNamedPipe);
         return false;
@@ -40,22 +40,34 @@ bool Pipe::waitForClient()
 
 bool Pipe::connectPipe()
 {
-    this->hNamedPipe = CreateFile(
-        pipeName.c_str(),  // Pipe name
-        GENERIC_READ,               // Desired access (read-only)
-        0,                          // Share mode (0 means no sharing)
-        NULL,                       // Security attributes
-        OPEN_EXISTING,              // Open an existing pipe
-        0,                          // File attributes
-        NULL                        // Template file
-    );
-
-    if (hNamedPipe == INVALID_HANDLE_VALUE) {
-        std::wcout << "Failed connecting to pipe: " << this->pipeName << std::endl;
-        return false;
+    const int maxRetries = 3;
+    int currentRetries = 0;
+    while (currentRetries < maxRetries)
+    {
+        this->hNamedPipe = CreateFile(
+            pipeName.c_str(),  // Pipe name
+            GENERIC_READ,               // Desired access (read-only)
+            0,                          // Share mode (0 means no sharing)
+            NULL,                       // Security attributes
+            OPEN_EXISTING,              // Open an existing pipe
+            0,                          // File attributes
+            NULL                        // Template file
+        );
+        if (hNamedPipe == INVALID_HANDLE_VALUE) {
+            std::wcout << "Failed connecting to pipe: " << this->pipeName << std::endl;
+            Sleep(1000);
+            currentRetries++;
+        }
+        else
+        {
+            std::wcout << "Connected to Pipe: " << this->pipeName << std::endl;
+            return true;
+        }
     }
-    std::wcout << "Connected to Pipe: " << this->pipeName << std::endl;
-    return true;
+    return false;
+
+
+
 }
 bool Pipe::sendBlockHeaderMessage(const pipeMessage& message)
 {

@@ -46,5 +46,7 @@ public:
     pipeMessage readPipeMessage();
     bool sendPacketMessage(const pipeMessage& message);
     bool sendBlockHeaderMessage(const pipeMessage& message);
+private:
+    OVERLAPPED overlapped; // Declare overlapped as a member variable
 
 };
