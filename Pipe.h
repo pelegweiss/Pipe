@@ -9,11 +9,12 @@ enum messagesTypes
 };
 enum encodingTypes
 {
-    encode1 = 1, encode2 = 2, encode4 = 4, encodeStr = 5, encodeBuffer = 6, decode1 = 7, decode2 = 8, decode4 = 9, decodeStr = 10, decodeBuffer = 11
+    encode1 = 1, encode2 = 2, encode4 = 4, encodeStr = 5, encodeBuffer = 6, decode1 = 7, decode2 = 8, decode4 = 9, decodeStr = 10, decodeBuffer = 11, decode8 = 12
 };
 struct Segment
 {
     int type;
+    WORD len;
     std::vector<BYTE> bytes;
 };
 struct Packet

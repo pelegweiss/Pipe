@@ -93,6 +93,28 @@ bool Pipe::sendBlockHeaderMessage(const pipeMessage& message)
     return true;
 
 }
+size_t CalculateSerializedPacketSize(const Packet& p)
+{
+    size_t size = 0;
+
+    size += sizeof(p.callerAddress);   // DWORD = 4 bytes
+    size += sizeof(p.header);          // WORD  = 2 bytes
+
+    size += sizeof(p.segments.size()); // size() returns a int
+
+    //for each segment
+    for (const Segment& seg : p.segments)
+    {
+        size += sizeof(seg.type);        // int = 4 bytes
+        size += sizeof(seg.len);         // WORD = 2 bytes
+
+        size += sizeof(seg.bytes.size());  // size() returns a int
+
+        size += seg.bytes.size();        // the amoount of actual bytes we need to allocate memory for
+    }
+
+    return size;
+}
 bool Pipe::sendPacketMessage(const pipeMessage& message)
 {
     DWORD bytesWritten;
@@ -105,20 +127,8 @@ bool Pipe::sendPacketMessage(const pipeMessage& message)
 
 
     p = reinterpret_cast<const Packet*>(message.data);
-    int dataSize = 0;
-    dataSize += sizeof(p->callerAddress);
-    dataSize += sizeof(p->header);
-    dataSize += sizeof(p->segments.size());
-    for (int i = 0; i < p->segments.size(); i++)
-    {
-        dataSize += sizeof(p->segments.at(i).type);
-        dataSize += sizeof(p->segments.at(i).bytes.size());
-        for (int j = 0; j < p->segments.at(i).bytes.size(); j++)
-        {
-            dataSize += sizeof(BYTE);
-
-        }
-    }
+    
+    size_t dataSize = CalculateSerializedPacketSize(*p);
 
     // Serialize the dataSize
     serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&dataSize), reinterpret_cast<const BYTE*>(&dataSize) + sizeof(int));
@@ -131,8 +141,8 @@ bool Pipe::sendPacketMessage(const pipeMessage& message)
 
 
     // Serialize the segments length
-    int vectorLen = p->segments.size();
-    serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&vectorLen), reinterpret_cast<const BYTE*>(&vectorLen) + sizeof(int));
+     int vectorLen = p->segments.size();
+     serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&vectorLen), reinterpret_cast<const BYTE*>(&vectorLen) + sizeof(int));
 
 
 #   //seralize elements
@@ -141,7 +151,7 @@ bool Pipe::sendPacketMessage(const pipeMessage& message)
         int elementSize = p->segments.at(i).bytes.size();
         //Serlize the encoding type
         serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&p->segments.at(i).type), reinterpret_cast<const BYTE*>(&p->segments.at(i).type) + sizeof(int));
-
+        serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&p->segments.at(i).len), reinterpret_cast<const BYTE*>(&p->segments.at(i).len) + sizeof(WORD));
         serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&elementSize), reinterpret_cast<const BYTE*>(&elementSize) + sizeof(int));
         serializedData.insert(serializedData.end(), reinterpret_cast<const BYTE*>(&p->segments.at(i).bytes.at(0)), reinterpret_cast<const BYTE*>(&p->segments.at(i).bytes.at(0)) + (elementSize * sizeof(BYTE)));
 
@@ -176,6 +186,11 @@ pipeMessage Pipe::readPipeMessage()
         return receivedMessage;
     }
     SetFilePointer(this->hNamedPipe, 4, NULL, FILE_CURRENT);
+    if (dataSize < 0)
+    {
+        receivedMessage.id = -1; // Indicate an error
+        return receivedMessage;
+    }
     bytes = new BYTE[dataSize];
     //deseraliize the dataBytes
     for (int i = 0; i < dataSize; i++)
